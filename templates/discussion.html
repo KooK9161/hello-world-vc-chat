@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona Discussion - Virtual Sei-katsu-sha</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .discussion-body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #fff;
+            font-family: 'Segoe UI', 'Yu Gothic UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Setup Screen ── */
+        .setup-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+            overflow-y: auto;
+        }
+        .setup-title { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        .setup-subtitle { font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 24px; }
+
+        .select-all-area { margin-bottom: 16px; display: flex; gap: 12px; }
+        .select-all-btn {
+            padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.3);
+            background: transparent; color: #fff; font-size: 13px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .select-all-btn:hover { background: rgba(255,255,255,0.1); }
+        .selected-count { font-size: 13px; color: #FFD700; margin-bottom: 20px; }
+
+        .persona-select-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            max-width: 500px;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+        .persona-select-item {
+            cursor: pointer; border-radius: 12px; overflow: hidden;
+            border: 3px solid transparent; transition: all 0.2s;
+            background: rgba(255,255,255,0.08);
+            position: relative;
+        }
+        .persona-select-item:hover {
+            border-color: rgba(255,255,255,0.4); transform: scale(1.05);
+        }
+        .persona-select-item.selected {
+            border-color: #FFD700;
+            box-shadow: 0 0 15px rgba(255,215,0,0.4);
+        }
+        .persona-select-item .select-order {
+            position: absolute; top: 4px; right: 4px;
+            width: 20px; height: 20px; border-radius: 50%;
+            background: #FFD700; color: #1a1a2e;
+            font-size: 10px; font-weight: 900;
+            display: none; align-items: center; justify-content: center;
+        }
+        .persona-select-item.selected .select-order { display: flex; }
+        .persona-select-item img {
+            width: 100%; height: 120px;
+            object-fit: cover; object-position: top;
+        }
+        .persona-select-item .select-name {
+            font-size: 9px; padding: 4px 2px;
+            text-align: center; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .persona-select-item .select-city {
+            font-size: 7px; color: rgba(255,255,255,0.4);
+            text-align: center; padding-bottom: 4px;
+        }
+
+        .topic-input-area {
+            width: 100%; max-width: 700px; margin-bottom: 24px;
+        }
+        .topic-input-area label {
+            display: block; font-size: 14px; margin-bottom: 8px;
+            color: rgba(255,255,255,0.7);
+        }
+        .topic-presets { margin-bottom: 16px; }
+        .topic-preset-group { margin-bottom: 14px; }
+        .topic-group-label {
+            font-size: 12px; font-weight: 700;
+            color: rgba(255,255,255,0.5); display: block; margin-bottom: 8px;
+        }
+        .topic-preset-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .topic-chip {
+            padding: 8px 14px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8);
+            font-size: 12px; cursor: pointer; text-align: left;
+            transition: all 0.2s; line-height: 1.4;
+        }
+        .topic-chip:hover {
+            background: rgba(255,215,0,0.15);
+            border-color: rgba(255,215,0,0.4);
+            color: #fff;
+        }
+        .topic-chip.active {
+            background: rgba(255,215,0,0.2);
+            border-color: #FFD700;
+            color: #FFD700;
+        }
+        .topic-input {
+            width: 100%; padding: 14px 18px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1); color: #fff;
+            font-size: 15px; outline: none; box-sizing: border-box;
+        }
+        .topic-input:focus { border-color: #FFD700; }
+        .topic-input::placeholder { color: rgba(255,255,255,0.4); }
+
+        .start-btn {
+            padding: 14px 48px; border-radius: 30px; border: none;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #1a1a2e; font-size: 16px; font-weight: 700;
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .start-btn:hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(255,215,0,0.4); }
+        .start-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        /* ── Discussion Chat Screen ── */
+        .discussion-chat {
+            display: none; flex: 1; flex-direction: column; height: 100vh;
+        }
+        .discussion-chat.active { display: flex; }
+
+        .discussion-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 20px; background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px); flex-shrink: 0;
+        }
+        .discussion-header .back-link {
+            color: rgba(255,255,255,0.7); text-decoration: none; font-size: 14px;
+        }
+        .discussion-header .topic-display {
+            font-size: 14px; color: rgba(255,255,255,0.7);
+            max-width: 60%; text-align: center;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        /* Participant strip */
+        .participant-strip {
+            display: flex; gap: 6px; padding: 8px 16px;
+            background: rgba(0,0,0,0.2); overflow-x: auto;
+            flex-shrink: 0;
+        }
+        .participant-chip {
+            display: flex; align-items: center; gap: 7px;
+            padding: 5px 14px 5px 5px; border-radius: 24px;
+            background: rgba(255,255,255,0.08); flex-shrink: 0;
+            transition: all 0.3s;
+        }
+        .participant-chip.speaking {
+            background: rgba(255,215,0,0.2);
+            box-shadow: 0 0 10px rgba(255,215,0,0.3);
+        }
+        .participant-chip img {
+            width: 32px; height: 32px; border-radius: 50%;
+            object-fit: cover; object-position: top;
+        }
+        .participant-chip .chip-name {
+            font-size: 13px; font-weight: 600; white-space: nowrap;
+        }
+
+        /* Messages area */
+        .discussion-messages {
+            flex: 1; overflow-y: auto; padding: 16px 20px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .disc-message {
+            display: flex; gap: 12px; max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .disc-message.msg-left { align-self: flex-start; }
+        .disc-message.msg-right { align-self: flex-end; flex-direction: row-reverse; }
+        .disc-avatar {
+            width: 48px; height: 48px; border-radius: 50%;
+            object-fit: cover; object-position: top; flex-shrink: 0;
+            border: 2px solid rgba(255,255,255,0.15);
+        }
+        .disc-bubble {
+            padding: 14px 18px; border-radius: 16px;
+            font-size: 15px; line-height: 1.6;
+        }
+        .disc-message.msg-left .disc-bubble {
+            border-bottom-left-radius: 4px;
+        }
+        .disc-message.msg-right .disc-bubble {
+            border-bottom-right-radius: 4px;
+        }
+        .disc-name {
+            font-size: 13px; font-weight: 700; margin-bottom: 4px;
+        }
+
+        /* Moderator bubble */
+        .disc-message.moderator {
+            align-self: center; max-width: 70%;
+        }
+        .disc-message.moderator .disc-bubble {
+            background: rgba(255,215,0,0.12);
+            border: 1px solid rgba(255,215,0,0.3);
+            text-align: center;
+        }
+
+        /* Typing */
+        .disc-typing { display: flex; gap: 4px; padding: 8px 14px; }
+        .disc-typing .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            animation: typingBounce 1.2s ease-in-out infinite;
+        }
+        .disc-typing .dot:nth-child(2) { animation-delay: 0.2s; }
+        .disc-typing .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
+
+        /* Bottom controls */
+        .discussion-controls {
+            padding: 12px 16px; background: rgba(0,0,0,0.3);
+            display: flex; gap: 10px; align-items: center;
+            justify-content: center; flex-shrink: 0;
+        }
+        .rounds-info { font-size: 12px; color: rgba(255,255,255,0.5); }
+        .inject-area { flex: 1; max-width: 450px; }
+        .inject-input {
+            width: 100%; padding: 10px 16px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1); color: #fff;
+            font-size: 13px; outline: none; box-sizing: border-box;
+        }
+        .inject-input::placeholder { color: rgba(255,255,255,0.4); }
+        .continue-btn {
+            padding: 10px 24px; border-radius: 20px; border: none;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #1a1a2e; font-size: 13px; font-weight: 700; cursor: pointer;
+        }
+        .continue-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .new-topic-btn {
+            padding: 10px 16px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: transparent; color: #fff; font-size: 12px; cursor: pointer;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .persona-select-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+            .persona-select-item img { height: 50px; }
+            .disc-message { max-width: 90%; }
+            .participant-chip .chip-name { font-size: 8px; }
+        }
+    </style>
+</head>
+<body class="discussion-body">
+    <!-- SETUP SCREEN -->
+    <div id="setup-screen" class="setup-screen">
+        <a href="/?region={{ region }}" style="text-decoration:none; margin-bottom:16px;">
+            <div class="logo logo-large">
+                <span class="logo-h">H</span><span class="logo-e">E</span><span class="logo-l1">L</span><span class="logo-l2">L</span><span class="logo-o">O</span>
+                <span class="logo-space">&nbsp;</span>
+                <span class="logo-w">W</span><span class="logo-o2">O</span><span class="logo-r">R</span><span class="logo-l3">L</span><span class="logo-d">D</span>
+            </div>
+        </a>
+        <div class="setup-title">Persona Discussion</div>
+        <div class="setup-subtitle">
+            {% if region == 'vietnam' %}Vietnam Instant Noodles — Acecook Cup Category
+            {% elif region == 'india' %}India EV Intender / Owner Study
+            {% else %}HILL ASEAN 2026 — Decoding The Prime Generations{% endif %}
+        </div>
+
+        <!-- STEP 1: Topic Selection (FIRST) -->
+        <div class="topic-input-area">
+            <label>① 💡 Discussion Topic — Select or type your own</label>
+            <div class="topic-presets">
+                {% if region == 'asean' %}
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">🔬 HILL ASEAN 2026: Decoding The Prime Generations</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">Does "ideal life" mean escaping reality, or expanding your current life through connections?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Does ambition really fade as you get older? What drives your aspiration now?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Is aging about decline, or is it actually about renewal and blossoming?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">What does "dignity" mean to you as you grow older? How does Kreng Jai shape your view?</button>
+                    </div>
+                </div>
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">🇹🇭 Thailand: Aging & Dignity</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">In Thailand, is independence the foundation of dignity? How do you balance self-reliance with family bonds?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Are you "Slow" (old & passive) or "Spicy" (still cool & active)? How do you see yourself aging?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">What do you most want to spend money on right now, and why?</button>
+                    </div>
+                </div>
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">💡 Generational Values</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">Millennials invest in self-growth, Gen X seeks rebalancing, Boomers want to stay useful. Which resonates with you?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How has technology changed what you can do? Is it a possibility engine, learning tool, or ease enabler?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Should brands sell "anti-aging fear" or enable "pro-aging blossoming"? What would make you feel truly seen?</button>
+                    </div>
+                </div>
+
+                {% elif region == 'india' %}
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">🚗 EV Ownership & Experience</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">What made you consider an EV? Was it cost savings, environment, technology, or social status?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">What's the biggest barrier to EV adoption in India — charging infrastructure, range anxiety, or price?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How does your family feel about owning an EV? Do they support or resist the idea?</button>
+                    </div>
+                </div>
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">🛣️ Car & Mobility Values</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">Is a car a status symbol, a practical necessity, or a lifestyle statement for you?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Would you sacrifice driving range for a lower price, or pay more for peace of mind?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How important is "Made in India" when choosing an EV brand? Do you trust local vs global brands?</button>
+                    </div>
+                </div>
+
+                {% elif region == 'vietnam' %}
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">🍜 Cup Noodle Lifestyle</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">When do you reach for cup noodles? Is it a meal, a snack, or an emotional comfort?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How do you feel about eating cup noodles in front of others? Is there any stigma?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Do you customize your cup noodles with extra ingredients? What's your signature twist?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How does cup noodle consumption fit into your daily routine and budget?</button>
+                    </div>
+                </div>
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">🌶️ Flavor & Taste Values</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">What flavors do you crave most — spicy, sour, savory, or something uniquely Vietnamese?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Do you compare cup noodles to homemade phở or street food? What standard do you hold them to?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Would you try an unusual or fusion flavor, or do you stick with what you know?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How important is the broth vs the noodle texture in your cup noodle experience?</button>
+                    </div>
+                </div>
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">🛒 Purchase & Brand Perception</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">What makes you choose one cup noodle brand over another? Price, taste, habit, or packaging?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">Do you see Acecook as a Vietnamese brand or a foreign brand? Does it matter?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How do promotions, ads, or social media influence your cup noodle purchases?</button>
+                    </div>
+                </div>
+                <div class="topic-preset-group">
+                    <span class="topic-group-label">💭 Deeper Values & Aspirations</span>
+                    <div class="topic-preset-chips">
+                        <button class="topic-chip" onclick="setTopic(this)">Does convenience food represent freedom and modernity, or a compromise on health?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">How do generational differences shape attitudes toward instant food in Vietnam?</button>
+                        <button class="topic-chip" onclick="setTopic(this)">If cup noodles could be "upgraded" to feel premium, what would that look like for you?</button>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <input type="text" id="topic-input" class="topic-input" placeholder="Or type your own topic..." autocomplete="off">
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+                <label style="font-size: 12px; color: rgba(255,255,255,0.6);">🌐 Response Language:</label>
+                <select id="lang-select" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; font-size: 13px; outline: none;">
+                    <option value="en">English</option>
+                    <option value="ja">日本語 (Japanese)</option>
+                    {% if region == 'asean' %}
+                    <option value="th">ภาษาไทย (Thai)</option>
+                    {% elif region == 'vietnam' %}
+                    <option value="vi">Tiếng Việt (Vietnamese)</option>
+                    {% elif region == 'india' %}
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+
+        <!-- STEP 2: Persona Selection -->
+        <label style="font-size:14px; color:rgba(255,255,255,0.7); margin-bottom:12px;">② 👥 Select Personas</label>
+        <div class="select-all-area">
+            <button class="select-all-btn" onclick="selectAllPersonas()">Select All</button>
+            <button class="select-all-btn" onclick="clearSelection()">Clear</button>
+        </div>
+        <div class="selected-count" id="selected-count">0 personas selected (min 2)</div>
+
+        <div class="persona-select-grid" id="persona-grid">
+            {% for p in personas %}
+            <div class="persona-select-item"
+                 data-id="{{ p.id }}"
+                 data-name="{{ p.name }}"
+                 data-img="{{ p.image }}"
+                 data-desc="{{ p.description | default('') }}"
+                 data-color="{{ p.bg_color_top | default('#666') }}"
+                 onclick="togglePersona(this)">
+                <div class="select-order"></div>
+                <img src="{{ url_for('static', filename='images/' + p.image) }}" alt="{{ p.name }}">
+                <div class="select-name">{{ p.name.split(' ')[0] }}</div>
+                <div class="select-city">{{ p.description.split('|')[1] | default('') | trim if p.description and '|' in p.description else '' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- STEP 3: Start -->
+        <button class="start-btn" id="start-btn" disabled onclick="startDiscussion()">Start Discussion ▶</button>
+    </div>
+
+    <!-- DISCUSSION CHAT SCREEN -->
+    <div id="discussion-chat" class="discussion-chat">
+        <div class="discussion-header">
+            <a href="/discussion?region={{ region }}" class="back-link" onclick="location.reload(); return false;">← Back</a>
+            <div class="topic-display" id="topic-display"></div>
+            <a href="/?region={{ region }}" class="back-link">Home</a>
+        </div>
+
+        <!-- Participant strip -->
+        <div class="participant-strip" id="participant-strip"></div>
+
+        <!-- Messages -->
+        <div class="discussion-messages" id="disc-messages"></div>
+
+        <!-- Controls -->
+        <div class="discussion-controls">
+            <span class="rounds-info" id="rounds-info">Round 0</span>
+            <div class="inject-area">
+                <input type="text" id="inject-input" class="inject-input" placeholder="Inject a follow-up question..." autocomplete="off">
+            </div>
+            <button class="continue-btn" id="continue-btn" onclick="continueDiscussion()">Next Round ▶</button>
+            <button class="new-topic-btn" onclick="location.reload()">New Topic</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedPersonas = [];
+        let topic = '';
+        let discussionLog = []; // full log for context
+        let roundCount = 0;
+        let isProcessing = false;
+
+        // ── Selection Logic ──
+        function togglePersona(el) {
+            const id = el.dataset.id;
+            const idx = selectedPersonas.findIndex(p => p.id === id);
+            if (idx >= 0) {
+                selectedPersonas.splice(idx, 1);
+                el.classList.remove('selected');
+            } else {
+                selectedPersonas.push({
+                    id: el.dataset.id,
+                    name: el.dataset.name,
+                    img: el.dataset.img,
+                    desc: el.dataset.desc,
+                    color: el.dataset.color
+                });
+                el.classList.add('selected');
+            }
+            updateOrderBadges();
+            updateStartBtn();
+        }
+
+        function selectAllPersonas() {
+            clearSelection();
+            document.querySelectorAll('#persona-grid .persona-select-item').forEach(el => {
+                selectedPersonas.push({
+                    id: el.dataset.id, name: el.dataset.name,
+                    img: el.dataset.img, desc: el.dataset.desc, color: el.dataset.color
+                });
+                el.classList.add('selected');
+            });
+            updateOrderBadges();
+            updateStartBtn();
+        }
+
+        function clearSelection() {
+            selectedPersonas = [];
+            document.querySelectorAll('.persona-select-item').forEach(el => el.classList.remove('selected'));
+            updateOrderBadges();
+            updateStartBtn();
+        }
+
+        function updateOrderBadges() {
+            document.querySelectorAll('#persona-grid .persona-select-item').forEach(el => {
+                const idx = selectedPersonas.findIndex(p => p.id === el.dataset.id);
+                const badge = el.querySelector('.select-order');
+                if (idx >= 0) {
+                    badge.textContent = idx + 1;
+                } else {
+                    badge.textContent = '';
+                }
+            });
+            document.getElementById('selected-count').textContent =
+                `${selectedPersonas.length} personas selected (min 2)`;
+        }
+
+        function updateStartBtn() {
+            const topicVal = document.getElementById('topic-input').value.trim();
+            document.getElementById('start-btn').disabled = !(selectedPersonas.length >= 2 && topicVal);
+        }
+
+        document.getElementById('topic-input').addEventListener('input', () => {
+            // Deselect preset chips when typing custom topic
+            document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
+            updateStartBtn();
+        });
+
+        function setTopic(el) {
+            document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('topic-input').value = el.textContent;
+            updateStartBtn();
+        }
+
+        // ── Start Discussion ──
+        function startDiscussion() {
+            if (selectedPersonas.length < 2) return;
+            topic = document.getElementById('topic-input').value.trim();
+            if (!topic) return;
+
+            // Build participant strip
+            const strip = document.getElementById('participant-strip');
+            strip.innerHTML = '';
+            selectedPersonas.forEach(p => {
+                const chip = document.createElement('div');
+                chip.className = 'participant-chip';
+                chip.id = `chip-${p.id}`;
+                chip.style.borderLeft = `3px solid ${p.color}`;
+                chip.innerHTML = `
+                    <img src="/static/images/${p.img}" alt="${p.name}">
+                    <span class="chip-name">${p.name.split(' ')[0]}</span>
+                `;
+                strip.appendChild(chip);
+            });
+
+            document.getElementById('topic-display').textContent = `"${topic}"`;
+
+            // Switch screens
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('discussion-chat').classList.add('active');
+
+            // Start
+            discussionLog = [];
+            roundCount = 0;
+            runRound(topic);
+        }
+
+        // Enter key
+        document.getElementById('inject-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !isProcessing) {
+                e.preventDefault();
+                continueDiscussion();
+            }
+        });
+
+        // ── Run One Round (all personas speak) ──
+        async function runRound(userPrompt) {
+            if (isProcessing) return;
+            isProcessing = true;
+            roundCount++;
+            document.getElementById('rounds-info').textContent = `Round ${roundCount}`;
+            document.getElementById('continue-btn').disabled = true;
+
+            // Build context summary of what was said so far
+            const contextSummary = discussionLog.length > 0
+                ? '\n\nPrevious discussion:\n' + discussionLog.slice(-selectedPersonas.length * 2).map(d => `${d.name}: "${d.text}"`).join('\n')
+                : '';
+
+            // Language instruction from selector
+            const langMap = {
+                'ja': '\n\nIMPORTANT: You MUST respond in Japanese (日本語). Do not respond in English.',
+                'th': '\n\nIMPORTANT: You MUST respond in Thai (ภาษาไทย). Do not respond in English.',
+                'vi': '\n\nIMPORTANT: You MUST respond in Vietnamese (Tiếng Việt). Do not respond in English.',
+                'hi': '\n\nIMPORTANT: You MUST respond in Hindi (हिन्दी). Do not respond in English.',
+                'en': ''
+            };
+            const selectedLang = document.getElementById('lang-select').value;
+            const langInstruction = langMap[selectedLang] || '';
+
+            for (let i = 0; i < selectedPersonas.length; i++) {
+                const p = selectedPersonas[i];
+                const side = i % 2 === 0 ? 'left' : 'right';
+
+                // Highlight speaking chip
+                const chip = document.getElementById(`chip-${p.id}`);
+                if (chip) chip.classList.add('speaking');
+
+                // Build prompt with context from other speakers in this round
+                const roundContext = discussionLog.slice(-i).map(d => `${d.name}: "${d.text}"`).join('\n');
+                let prompt;
+                if (i === 0 && roundCount === 1) {
+                    prompt = `Topic for discussion: "${userPrompt}"\n\nYou are in a group discussion with ${selectedPersonas.length} people. Please share your perspective. Keep your response concise (2-3 sentences).${langInstruction}`;
+                } else if (i === 0) {
+                    prompt = `${userPrompt}\n\nYou are in a group discussion. ${contextSummary}\n\nPlease share your perspective. Keep it concise (2-3 sentences).${langInstruction}`;
+                } else {
+                    const prevSpeakers = discussionLog.slice(-i).map(d => `${d.name} said: "${d.text}"`).join('\n');
+                    prompt = `Topic: "${topic}"\n\nYou are in a group discussion.${contextSummary}\n\nJust now:\n${prevSpeakers}\n\nPlease respond with your own perspective. You can agree, disagree, or add a new angle. Keep it concise (2-3 sentences).${langInstruction}`;
+                }
+
+                // Show typing
+                addTyping(side, p);
+                const reply = await callPersonaAPI(p.id, prompt);
+                removeTyping();
+
+                // Remove speaking highlight
+                if (chip) chip.classList.remove('speaking');
+
+                // Add bubble
+                addBubble(side, p, reply);
+                discussionLog.push({ id: p.id, name: p.name, text: reply });
+
+                // Brief pause between speakers
+                if (i < selectedPersonas.length - 1) {
+                    await sleep(300);
+                }
+            }
+
+            isProcessing = false;
+            document.getElementById('continue-btn').disabled = false;
+        }
+
+        function continueDiscussion() {
+            const inject = document.getElementById('inject-input').value.trim();
+            document.getElementById('inject-input').value = '';
+
+            const langMap2 = {
+                'ja': ' Respond in Japanese (日本語).',
+                'th': ' Respond in Thai (ภาษาไทย).',
+                'vi': ' Respond in Vietnamese (Tiếng Việt).',
+                'hi': ' Respond in Hindi (हिन्दी).',
+                'en': ''
+            };
+            const langSuffix = langMap2[document.getElementById('lang-select').value] || '';
+
+            let prompt;
+            if (inject) {
+                addModeratorBubble(inject);
+                prompt = `New question from the moderator: "${inject}"\n\nPlease share your thoughts.${langSuffix}`;
+            } else {
+                prompt = `Continue the discussion about "${topic}". Share a new insight or build on what others said.${langSuffix}`;
+            }
+            runRound(prompt);
+        }
+
+        async function callPersonaAPI(personaId, message) {
+            try {
+                const res = await fetch(`/api/chat/${personaId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, history: [] })
+                });
+                const data = await res.json();
+                return data.reply || data.error || 'No response';
+            } catch (err) {
+                return `Error: ${err.message}`;
+            }
+        }
+
+        // ── UI Helpers ──
+        function addBubble(side, persona, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `disc-message msg-${side}`;
+
+            const avatar = document.createElement('img');
+            avatar.className = 'disc-avatar';
+            avatar.src = `/static/images/${persona.img}`;
+            avatar.style.border = `2px solid ${persona.color}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'disc-bubble';
+            bubble.style.background = `${persona.color}22`;
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'disc-name';
+            nameEl.style.color = persona.color;
+            nameEl.textContent = persona.name;
+
+            const textEl = document.createElement('span');
+            textEl.innerHTML = formatText(text);
+
+            bubble.appendChild(nameEl);
+            bubble.appendChild(textEl);
+            msgDiv.appendChild(avatar);
+            msgDiv.appendChild(bubble);
+
+            document.getElementById('disc-messages').appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function addModeratorBubble(text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'disc-message moderator';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'disc-bubble';
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'disc-name';
+            nameEl.style.color = '#FFD700';
+            nameEl.textContent = '🎤 Moderator';
+
+            const textEl = document.createElement('span');
+            textEl.textContent = text;
+
+            bubble.appendChild(nameEl);
+            bubble.appendChild(textEl);
+            msgDiv.appendChild(bubble);
+
+            document.getElementById('disc-messages').appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function addTyping(side, persona) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `disc-message msg-${side}`;
+            msgDiv.id = 'typing-msg';
+
+            const avatar = document.createElement('img');
+            avatar.className = 'disc-avatar';
+            avatar.src = `/static/images/${persona.img}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'disc-bubble disc-typing';
+            bubble.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+
+            msgDiv.appendChild(avatar);
+            msgDiv.appendChild(bubble);
+            document.getElementById('disc-messages').appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function removeTyping() {
+            const el = document.getElementById('typing-msg');
+            if (el) el.remove();
+        }
+
+        function formatText(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function scrollToBottom() {
+            const el = document.getElementById('disc-messages');
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+chromadb_data/
+.claude/
+venv/
+knowledge/
+persistent_data/
+.DS_Store

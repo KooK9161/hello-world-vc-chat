@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hello-world-vc-chat
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PRODUCTION
+        value: "true"
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: LOGIN_USERS
+        sync: false
+    disk:
+      name: persistent-data
+      mountPath: /app/persistent_data
+      sizeGB: 1

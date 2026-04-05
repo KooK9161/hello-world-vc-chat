@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HELLO WORLD - Virtual Sei-katsu-sha</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .persona-grid {
+            display: none;
+        }
+        .persona-grid.active {
+            display: grid;
+        }
+        .region-label {
+            text-align: center;
+            color: rgba(255,255,255,0.45);
+            font-size: 13px;
+            margin-bottom: 1.5rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Hamburger menu */
+        .hamburger-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        .hamburger-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .hamburger-btn span {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        .hamburger-btn.open span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        .hamburger-btn.open span:nth-child(2) {
+            opacity: 0;
+        }
+        .hamburger-btn.open span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Side drawer */
+        .side-drawer {
+            position: fixed;
+            top: 0;
+            right: -280px;
+            width: 280px;
+            height: 100vh;
+            background: rgba(20, 20, 30, 0.97);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            transition: right 0.3s ease;
+            padding: 80px 24px 24px;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+            overflow-y: auto;
+        }
+        .side-drawer.open {
+            right: 0;
+        }
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.4);
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .drawer-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .drawer-section {
+            margin-bottom: 28px;
+        }
+        .drawer-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.35);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .drawer-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: rgba(255,255,255,0.65);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .drawer-item:hover {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+        .drawer-item.active {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            font-weight: 600;
+        }
+        .drawer-item .drawer-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+        .drawer-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 16px 0;
+        }
+    </style>
+</head>
+<body class="index-body">
+    <!-- Hamburger Button -->
+    <button class="hamburger-btn" onclick="toggleDrawer()">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <!-- Overlay -->
+    <div class="drawer-overlay" onclick="toggleDrawer()"></div>
+
+    <!-- Side Drawer -->
+    <div class="side-drawer">
+        <div class="drawer-section">
+            <div class="drawer-section-title">Region</div>
+            <div class="drawer-item active" onclick="switchRegion('asean', this)">
+                <span class="drawer-icon">🇹🇭</span> ASEAN
+            </div>
+            <div class="drawer-item" onclick="switchRegion('india', this)">
+                <span class="drawer-icon">🇮🇳</span> India
+            </div>
+            <div class="drawer-item" onclick="switchRegion('vietnam', this)">
+                <span class="drawer-icon">🇻🇳</span> Vietnam
+            </div>
+        </div>
+        <div class="drawer-divider"></div>
+        <div class="drawer-section">
+            <div class="drawer-section-title">Tools</div>
+            <a href="/discussion?region=asean" class="drawer-item" id="drawer-discussion-link">
+                <span class="drawer-icon">💬</span> Persona Discussion
+            </a>
+        </div>
+    </div>
+
+    <header class="index-header">
+        <div class="logo logo-large">
+            <span class="logo-h">H</span><span class="logo-e">E</span><span class="logo-l1">L</span><span class="logo-l2">L</span><span class="logo-o">O</span>
+            <span class="logo-space">&nbsp;</span>
+            <span class="logo-w">W</span><span class="logo-o2">O</span><span class="logo-r">R</span><span class="logo-l3">L</span><span class="logo-d">D</span>
+        </div>
+        <p class="index-subtitle" id="subtitle">HILL ASEAN x Virtual Sei-katsu-sha</p>
+        <a href="/discussion?region=asean" class="discussion-link" id="discussion-link">💬 Persona Discussion</a>
+    </header>
+
+    <main class="index-main">
+        <!-- ASEAN Personas -->
+        <div id="grid-asean" class="persona-grid active">
+            <p class="region-label" style="grid-column: 1/-1;">HILL ASEAN 2026 — Decoding The Prime Generations</p>
+            {% for persona in personas_asean %}
+            <div class="persona-card" style="--card-bg: {{ persona.bg_color_top | default('#C4A0B9') }}">
+                <div class="persona-card-image" style="background: linear-gradient(135deg, {{ persona.bg_color_top | default('#C4A0B9') }}, {{ persona.bg_color_bottom | default('#B08DA5') }})">
+                    <img src="{{ url_for('static', filename='images/' + persona.image) }}" alt="{{ persona.name }}">
+                </div>
+                <div class="persona-card-body">
+                    <h3>{{ persona.name }}</h3>
+                    <p class="persona-card-desc">{{ persona.description | default('') | truncate(80) }}</p>
+                    <div class="persona-card-actions">
+                        <a href="/chat/{{ persona.id }}" class="btn btn-chat">Chat</a>
+                        <a href="/admin/{{ persona.id }}" class="btn btn-admin">Settings</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if personas_asean | length < 3 %}
+            {% for i in range(3 - personas_asean | length) %}
+            <div class="persona-card persona-card-empty">
+                <div class="persona-card-image empty-image">
+                    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+                        <circle cx="12" cy="8" r="4"/>
+                        <path d="M20 21a8 8 0 1 0-16 0"/>
+                    </svg>
+                </div>
+                <div class="persona-card-body">
+                    <h3>Coming Soon</h3>
+                    <p class="persona-card-desc">Add a new persona</p>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- India Personas -->
+        <div id="grid-india" class="persona-grid">
+            <p class="region-label" style="grid-column: 1/-1;">India EV Intender / Owner Study</p>
+            {% for persona in personas_india %}
+            <div class="persona-card" style="--card-bg: {{ persona.bg_color_top | default('#5B8C7A') }}">
+                <div class="persona-card-image" style="background: linear-gradient(135deg, {{ persona.bg_color_top | default('#5B8C7A') }}, {{ persona.bg_color_bottom | default('#3D6B5E') }})">
+                    <img src="{{ url_for('static', filename='images/' + persona.image) }}" alt="{{ persona.name }}">
+                </div>
+                <div class="persona-card-body">
+                    <h3>{{ persona.name }}</h3>
+                    <p class="persona-card-desc">{{ persona.description | default('') | truncate(80) }}</p>
+                    <div class="persona-card-actions">
+                        <a href="/chat/{{ persona.id }}" class="btn btn-chat">Chat</a>
+                        <a href="/admin/{{ persona.id }}" class="btn btn-admin">Settings</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Vietnam Personas -->
+        <div id="grid-vietnam" class="persona-grid">
+            <p class="region-label" style="grid-column: 1/-1;">Vietnam Instant Noodles Personas — Acecook Cup Category 2026</p>
+            {% for persona in personas_vietnam %}
+            <div class="persona-card" style="--card-bg: {{ persona.bg_color_top | default('#D4574E') }}">
+                <div class="persona-card-image" style="background: linear-gradient(135deg, {{ persona.bg_color_top | default('#D4574E') }}, {{ persona.bg_color_bottom | default('#A23D36') }})">
+                    <img src="{{ url_for('static', filename='images/' + persona.image) }}" alt="{{ persona.name }}">
+                </div>
+                <div class="persona-card-body">
+                    <h3>{{ persona.name }}</h3>
+                    <p class="persona-card-desc">{{ persona.description | default('') | truncate(80) }}</p>
+                    <div class="persona-card-actions">
+                        <a href="/chat/{{ persona.id }}" class="btn btn-chat">Chat</a>
+                        <a href="/admin/{{ persona.id }}" class="btn btn-admin">Settings</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <footer class="index-footer">
+        &copy; Hakuhodo Inc. All rights reserved.
+    </footer>
+
+    <script>
+        function toggleDrawer() {
+            document.querySelector('.side-drawer').classList.toggle('open');
+            document.querySelector('.drawer-overlay').classList.toggle('open');
+            document.querySelector('.hamburger-btn').classList.toggle('open');
+        }
+
+        const subtitles = {
+            'asean': 'HILL ASEAN x Virtual Sei-katsu-sha',
+            'india': 'India EV Intender / Owner x Virtual Sei-katsu-sha',
+            'vietnam': 'Vietnam Instant Noodles x Virtual Sei-katsu-sha'
+        };
+
+        function switchRegion(region, el) {
+            // Update active state in drawer
+            document.querySelectorAll('.drawer-section .drawer-item').forEach(i => i.classList.remove('active'));
+            if (el) el.classList.add('active');
+            // Show/hide grids
+            document.getElementById('grid-asean').classList.toggle('active', region === 'asean');
+            document.getElementById('grid-india').classList.toggle('active', region === 'india');
+            document.getElementById('grid-vietnam').classList.toggle('active', region === 'vietnam');
+            // Update subtitle
+            document.getElementById('subtitle').textContent = subtitles[region] || subtitles['asean'];
+            // Update discussion links
+            document.getElementById('discussion-link').href = '/discussion?region=' + region;
+            document.getElementById('drawer-discussion-link').href = '/discussion?region=' + region;
+            // Close drawer if open
+            if (document.querySelector('.side-drawer').classList.contains('open')) {
+                toggleDrawer();
+            }
+        }
+
+        // On load: check URL param for region
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const region = params.get('region');
+            if (region && ['asean', 'india', 'vietnam'].includes(region)) {
+                const items = document.querySelectorAll('.drawer-section .drawer-item');
+                items.forEach(i => i.classList.remove('active'));
+                items.forEach(i => {
+                    if (i.textContent.trim().toLowerCase().includes(region)) i.classList.add('active');
+                });
+                switchRegion(region, null);
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - HELLO WORLD</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-card">
+            <!-- Logo -->
+            <div class="login-logo">
+                <span class="logo-h">H</span><span class="logo-e">E</span><span class="logo-l1">L</span><span class="logo-l2">L</span><span class="logo-o">O</span>
+                <span class="logo-space">&nbsp;</span>
+                <span class="logo-w">W</span><span class="logo-o2">O</span><span class="logo-r">R</span><span class="logo-l3">L</span><span class="logo-d">D</span>
+            </div>
+
+            <!-- Error message -->
+            {% if error %}
+            <div class="login-error">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8453C" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <!-- Login Form -->
+            <form method="POST" action="/login" class="login-form">
+                <div class="login-field">
+                    <label for="username">ID</label>
+                    <input type="text" id="username" name="username"
+                           placeholder="" autocomplete="username" autofocus required>
+                </div>
+                <div class="login-field">
+                    <label for="password">PW</label>
+                    <input type="password" id="password" name="password"
+                           placeholder="" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="login-btn">LOG IN</button>
+            </form>
+        </div>
+    </div>
+
+    <footer class="login-footer">
+        &copy; Hakuhodo Inc. All rights reserved.
+    </footer>
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - {{ persona.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <a href="/?region={{ persona.region | default('asean') }}" class="logo">
+            <span class="logo-h">H</span><span class="logo-e">E</span><span class="logo-l1">L</span><span class="logo-l2">L</span><span class="logo-o">O</span>
+            <span class="logo-space">&nbsp;</span>
+            <span class="logo-w">W</span><span class="logo-o2">O</span><span class="logo-r">R</span><span class="logo-l3">L</span><span class="logo-d">D</span>
+        </a>
+        <div class="admin-header-right">
+            <a href="/chat/{{ persona.id }}" class="back-to-chat">Back to Chat</a>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <div class="admin-card">
+            <div class="admin-persona-header">
+                <img src="{{ url_for('static', filename='images/' + persona.image) }}" alt="{{ persona.name }}" class="admin-avatar">
+                <div>
+                    <h1>{{ persona.name }}</h1>
+                    <p class="admin-subtitle">Persona Settings & Knowledge Base</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions Section -->
+        <div class="admin-card">
+            <h2 class="admin-section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Instructions (System Prompt)
+            </h2>
+            <p class="admin-help">Define the persona's behavior, personality, and conversation rules. This is equivalent to Claude Projects' "Instructions" or Custom GPT's "Instructions".</p>
+            <textarea id="instructions" class="instructions-textarea" rows="16" placeholder="Enter persona instructions here...&#10;&#10;Example:&#10;You are Thu Siranee, a 28-year-old Thai woman...&#10;Always respond in a friendly, casual tone...&#10;Use Thai greetings occasionally...">{{ persona.instructions | default('') }}</textarea>
+            <div class="admin-actions">
+                <button onclick="saveInstructions()" class="btn btn-primary" id="save-btn">Save Instructions</button>
+                <span id="save-status" class="save-status"></span>
+            </div>
+        </div>
+
+        <!-- Knowledge Base Section -->
+        <div class="admin-card">
+            <h2 class="admin-section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Knowledge Base (Data Files)
+            </h2>
+            <p class="admin-help">Upload files that the persona can reference during conversations.<br>
+                Supported: <strong>TXT, PDF, DOCX, CSV, MD, JSON, XLSX, PPTX</strong></p>
+
+            <div class="upload-area" id="upload-area">
+                <input type="file" id="file-input" multiple
+                       accept=".txt,.pdf,.docx,.csv,.md,.json,.xlsx,.pptx"
+                       style="display:none" onchange="uploadFiles()">
+                <div class="upload-dropzone" onclick="document.getElementById('file-input').click()" id="dropzone">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <p>Click or drag files here to upload</p>
+                    <p class="upload-formats">TXT, PDF, DOCX, CSV, MD, JSON, XLSX, PPTX</p>
+                </div>
+            </div>
+
+            <div class="upload-progress hidden" id="upload-progress">
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+                <p id="upload-status-text">Uploading...</p>
+            </div>
+
+            <!-- Chunk Stats & Re-index -->
+            <div class="knowledge-stats">
+                <span class="chunk-badge" id="chunk-badge">{{ chunk_count }} chunks indexed</span>
+                <button onclick="reindex()" class="btn btn-small" id="reindex-btn" title="Re-index all files">Re-index</button>
+            </div>
+
+            <!-- File List -->
+            <div class="file-list" id="file-list">
+                {% if files %}
+                    {% for file in files %}
+                    <div class="file-item" id="file-{{ loop.index }}">
+                        <div class="file-info">
+                            <span class="file-icon">
+                                {% if file.name.endswith('.pdf') %}📕
+                                {% elif file.name.endswith('.pptx') %}📊
+                                {% elif file.name.endswith('.xlsx') %}📗
+                                {% elif file.name.endswith('.docx') %}📘
+                                {% elif file.name.endswith('.csv') %}📋
+                                {% else %}📄{% endif %}
+                            </span>
+                            <span class="file-name">{{ file.name }}</span>
+                            <span class="file-size">{{ file.size_kb }} KB</span>
+                        </div>
+                        <button class="file-delete" onclick="deleteFile('{{ file.name }}', 'file-{{ loop.index }}')" title="Delete">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="no-files" id="no-files">No knowledge files uploaded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const personaId = '{{ persona.id }}';
+        let pollTimer = null;
+
+        // Save instructions
+        async function saveInstructions() {
+            const btn = document.getElementById('save-btn');
+            const status = document.getElementById('save-status');
+            const instructions = document.getElementById('instructions').value;
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const res = await fetch(`/api/save-instructions/${personaId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instructions })
+                });
+                const data = await res.json();
+                status.textContent = 'Saved!';
+                status.className = 'save-status success';
+                setTimeout(() => { status.textContent = ''; }, 2000);
+            } catch (err) {
+                status.textContent = 'Error saving';
+                status.className = 'save-status error';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Save Instructions';
+        }
+
+        // Upload files
+        async function uploadFiles() {
+            const input = document.getElementById('file-input');
+            const files = input.files;
+            if (!files.length) return;
+
+            const progress = document.getElementById('upload-progress');
+            const progressFill = document.getElementById('progress-fill');
+            const statusText = document.getElementById('upload-status-text');
+
+            progress.classList.remove('hidden');
+            progressFill.style.width = '20%';
+            statusText.textContent = `Uploading ${files.length} file(s)...`;
+
+            const formData = new FormData();
+            for (let f of files) {
+                formData.append('files', f);
+            }
+
+            try {
+                progressFill.style.width = '50%';
+
+                // Use XMLHttpRequest for progress tracking
+                const data = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', `/api/upload-knowledge/${personaId}`);
+                    xhr.timeout = 300000; // 5 min timeout
+
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 60) + 20;
+                            progressFill.style.width = `${pct}%`;
+                            const mb = (e.loaded / 1024 / 1024).toFixed(1);
+                            const totalMb = (e.total / 1024 / 1024).toFixed(1);
+                            statusText.textContent = `Uploading... ${mb}/${totalMb} MB`;
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject(new Error(`Server error: ${xhr.status}`));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.ontimeout = () => reject(new Error('Upload timed out'));
+                    xhr.send(formData);
+                });
+
+                if (data.status === 'indexing') {
+                    progressFill.style.width = '80%';
+                    statusText.textContent = `${data.uploaded.length} file(s) uploaded. Indexing...`;
+                    startIndexPolling(statusText, progressFill, progress);
+                } else if (data.status === 'error') {
+                    statusText.textContent = data.message || 'Upload failed';
+                    progressFill.style.width = '0%';
+                }
+            } catch (err) {
+                statusText.textContent = `Error: ${err.message}`;
+                progressFill.style.width = '0%';
+                setTimeout(() => { progress.classList.add('hidden'); }, 3000);
+            }
+
+            input.value = '';
+        }
+
+        // Poll index status
+        function startIndexPolling(statusText, progressFill, progress) {
+            if (pollTimer) clearInterval(pollTimer);
+
+            pollTimer = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/index-status/${personaId}`);
+                    const data = await res.json();
+
+                    document.getElementById('chunk-badge').textContent = `${data.chunks} chunks indexed`;
+
+                    if (!data.indexing) {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+
+                        if (data.error) {
+                            statusText.textContent = `Indexing error: ${data.error}`;
+                            progressFill.style.width = '0%';
+                        } else {
+                            progressFill.style.width = '100%';
+                            statusText.textContent = `Done! ${data.chunks} chunks indexed.`;
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        }
+                    } else {
+                        // Update progress animation
+                        const current = parseFloat(progressFill.style.width) || 70;
+                        if (current < 95) {
+                            progressFill.style.width = `${current + 2}%`;
+                        }
+                        statusText.textContent = `Indexing... (${data.chunks} chunks so far)`;
+                    }
+                } catch (err) {
+                    console.error('Poll error:', err);
+                }
+            }, 1500);
+        }
+
+        // Re-index
+        async function reindex() {
+            const btn = document.getElementById('reindex-btn');
+            btn.disabled = true;
+            btn.textContent = 'Indexing...';
+
+            try {
+                const res = await fetch(`/api/reindex/${personaId}`, { method: 'POST' });
+                const data = await res.json();
+
+                const progress = document.getElementById('upload-progress');
+                const progressFill = document.getElementById('progress-fill');
+                const statusText = document.getElementById('upload-status-text');
+
+                progress.classList.remove('hidden');
+                progressFill.style.width = '30%';
+                statusText.textContent = 'Re-indexing all files...';
+
+                startIndexPolling(statusText, progressFill, progress);
+            } catch (err) {
+                alert('Error re-indexing');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Re-index';
+        }
+
+        // Delete file
+        async function deleteFile(filename, elementId) {
+            if (!confirm(`Delete "${filename}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/delete-knowledge/${personaId}/${encodeURIComponent(filename)}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                const el = document.getElementById(elementId);
+                if (el) el.remove();
+
+                // Start polling for re-index
+                if (data.reindexing) {
+                    const progress = document.getElementById('upload-progress');
+                    const progressFill = document.getElementById('progress-fill');
+                    const statusText = document.getElementById('upload-status-text');
+                    progress.classList.remove('hidden');
+                    progressFill.style.width = '30%';
+                    statusText.textContent = 'Re-indexing after delete...';
+                    startIndexPolling(statusText, progressFill, progress);
+                }
+
+                // Check if file list is empty
+                const fileList = document.getElementById('file-list');
+                if (!fileList.querySelector('.file-item')) {
+                    fileList.innerHTML = '<p class="no-files">No knowledge files uploaded yet.</p>';
+                }
+            } catch (err) {
+                alert('Error deleting file');
+            }
+        }
+
+        // Drag and drop
+        const dropzone = document.getElementById('dropzone');
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const input = document.getElementById('file-input');
+            input.files = e.dataTransfer.files;
+            uploadFiles();
+        });
+
+        // Ctrl+S to save
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveInstructions();
+            }
+        });
+    </script>
+</body>
+</html>

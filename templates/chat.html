@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ persona.name }} - HELLO WORLD</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        :root {
+            --bg-top: {{ persona.bg_color_top | default('#C4A0B9') }};
+            --bg-bottom: {{ persona.bg_color_bottom | default('#B08DA5') }};
+            --text-color: {{ persona.text_color | default('#ffffff') }};
+        }
+
+        /* ── Topic Tray (above input) ── */
+        .topic-tray {
+            position: fixed;
+            bottom: 80px; /* sits above the input-area */
+            left: 0; right: 0;
+            z-index: 50;
+            pointer-events: none;
+        }
+        .topic-tray-inner {
+            max-width: 700px;
+            margin: 0 auto;
+            pointer-events: auto;
+        }
+
+        /* Toggle bar */
+        .topic-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 7px 16px;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px 20px 0 0;
+            cursor: pointer;
+            user-select: none;
+            margin: 0 12px;
+            transition: background 0.2s;
+        }
+        .topic-toggle:hover {
+            background: rgba(0,0,0,0.55);
+        }
+        .topic-toggle-label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.75);
+            font-weight: 600;
+        }
+        .topic-toggle-arrow {
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            transition: transform 0.3s;
+        }
+        .topic-tray.open .topic-toggle-arrow {
+            transform: rotate(180deg);
+        }
+        .topic-tray.open .topic-toggle {
+            border-radius: 20px 20px 0 0;
+        }
+
+        /* Expandable panel */
+        .topic-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin: 0 12px;
+            border-radius: 0 0 16px 16px;
+        }
+        .topic-tray.open .topic-panel {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .topic-panel-content {
+            padding: 6px 14px 12px;
+        }
+
+        /* Groups & chips */
+        .topic-group {
+            margin-bottom: 8px;
+        }
+        .topic-group:last-child { margin-bottom: 0; }
+        .topic-group-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.45);
+            display: block;
+            margin-bottom: 5px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .topic-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .topic-chip {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.18);
+            color: rgba(255,255,255,0.9);
+            font-size: 11px;
+            padding: 5px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .topic-chip:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.4);
+            transform: translateY(-1px);
+        }
+        .topic-chip:active {
+            transform: scale(0.97);
+        }
+
+        /* Scrollbar for panel */
+        .topic-panel::-webkit-scrollbar { width: 4px; }
+        .topic-panel::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2); border-radius: 2px;
+        }
+
+        /* Adjust input area to not overlap */
+        .input-area {
+            position: relative;
+            z-index: 60;
+        }
+    </style>
+</head>
+<body class="chat-body">
+    <!-- Header -->
+    <header class="chat-header">
+        <a href="/?region={{ persona.region | default('asean') }}" class="logo">
+            <span class="logo-h">H</span><span class="logo-e">E</span><span class="logo-l1">L</span><span class="logo-l2">L</span><span class="logo-o">O</span>
+            <span class="logo-space">&nbsp;</span>
+            <span class="logo-w">W</span><span class="logo-o2">O</span><span class="logo-r">R</span><span class="logo-l3">L</span><span class="logo-d">D</span>
+        </a>
+        <a href="/admin/{{ persona.id }}" class="menu-btn" title="Settings">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+        </a>
+    </header>
+
+    <!-- Chat Area -->
+    <div class="chat-container">
+        <!-- Character Info -->
+        <div class="character-info">
+            <h2 class="character-name">{{ persona.name }}
+                <span class="info-icon" title="Click for details" onclick="toggleProfile()">&#9432;</span>
+            </h2>
+        </div>
+
+        <!-- Profile Panel (hidden by default) -->
+        <div id="profile-panel" class="profile-panel hidden">
+            <div class="profile-content">
+                <h3>{{ persona.name }}</h3>
+                <p>{{ persona.description | default('') }}</p>
+                <button onclick="toggleProfile()" class="close-profile">&times;</button>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="messages" class="messages-area">
+            <!-- Greeting bubble -->
+            <div class="message bot-message">
+                <div class="bubble bot-bubble">{{ persona.greeting | default('Hello! How can I help you?') }}</div>
+            </div>
+        </div>
+
+        <!-- Character Image -->
+        <div class="character-image-container">
+            <img src="{{ url_for('static', filename='images/' + persona.image) }}" alt="{{ persona.name }}" class="character-image">
+        </div>
+    </div>
+
+    <!-- Topic Preset Tray (persistent, above input) -->
+    <div class="topic-tray" id="topic-tray">
+        <div class="topic-tray-inner">
+            <div class="topic-toggle" onclick="toggleTopicTray()">
+                <span class="topic-toggle-label">💡 Discussion Topics</span>
+                <span class="topic-toggle-arrow">▲</span>
+            </div>
+            <div class="topic-panel">
+                <div class="topic-panel-content">
+                    {% if persona.region == 'vietnam' %}
+                    <!-- Vietnam: Instant Noodle Culture -->
+                    <div class="topic-group">
+                        <span class="topic-group-label">🍜 Cup Noodle Lifestyle</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">Walk me through the last time you ate cup noodles — where were you, what were you doing, and why did you choose it?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Is cup noodles a "real meal" to you, or more of a snack? When does it cross that line?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Do you eat cup noodles alone or with others? Does it feel different depending on who's around?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">What emotions come up when you open a cup of noodles? Comfort? Guilt? Nostalgia? Excitement?</button>
+                        </div>
+                    </div>
+                    <div class="topic-group">
+                        <span class="topic-group-label">🔥 Flavor & Taste Values</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">What's your ideal cup noodle flavor? Describe the taste, spice level, and aroma you dream about.</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Do you prefer familiar flavors you've loved for years, or do you actively seek new and surprising ones?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Is there a flavor you tried once and never bought again? What went wrong?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">How important is regional taste? Does a noodle need to match your hometown flavor to feel "right"?</button>
+                        </div>
+                    </div>
+                    <div class="topic-group">
+                        <span class="topic-group-label">🛒 Purchase & Brand Relationship</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">What makes you reach for one brand over another at the store? Price? Packaging? Habit? Something else?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Have you ever switched your go-to noodle brand? What caused it?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">What's the maximum price you'd pay for a cup noodle? At what point does it feel "too expensive for what it is"?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Cup or bag — which do you prefer and why? Does the occasion change your choice?</button>
+                        </div>
+                    </div>
+                    <div class="topic-group">
+                        <span class="topic-group-label">💭 Deeper Values</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">Some people feel embarrassed eating instant noodles. Do you? Why do you think that stigma exists?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">If you could design the perfect cup noodle — flavor, packaging, size, price — what would it look like?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Do you think cup noodles say something about a person's lifestyle? What does your choice say about you?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">How do you feel about health concerns around instant noodles? Does it change how often you eat them?</button>
+                        </div>
+                    </div>
+                    {% elif persona.region == 'india' %}
+                    <!-- India: EV Market -->
+                    <div class="topic-group">
+                        <span class="topic-group-label">⚡ EV Ownership & Interest</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">What first made you interested in electric vehicles? Was it a specific moment or a gradual shift?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">What's your biggest concern about owning an EV? Range, charging, cost, or something else?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">How do your family and friends react when you talk about EVs? Are they supportive or skeptical?</button>
+                        </div>
+                    </div>
+                    <div class="topic-group">
+                        <span class="topic-group-label">🚗 Car & Mobility Values</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">What does your car represent to you — status, freedom, practicality, or something else entirely?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">When you imagine your next car, what features matter most? Technology, safety, design, or brand?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Would you consider Honda for an EV? What comes to mind when you think of Honda?</button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- ASEAN: HILL ASEAN -->
+                    <div class="topic-group">
+                        <span class="topic-group-label">🔬 HILL ASEAN 2026: Decoding The Prime Generations</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">Does "ideal life" mean escaping reality, or expanding your current life through connections?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Does ambition really fade as you get older? What drives your aspiration now?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Is aging about decline, or is it actually about renewal and blossoming?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">What does "dignity" mean to you as you grow older? How does Kreng Jai shape your view?</button>
+                        </div>
+                    </div>
+                    <div class="topic-group">
+                        <span class="topic-group-label">🇹🇭 Thailand: Aging & Dignity</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">In Thailand, is independence the foundation of dignity? How do you balance self-reliance with family bonds?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Are you "Slow" (old & passive) or "Spicy" (still cool & active)? How do you see yourself aging?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">What do you most want to spend money on right now, and why?</button>
+                        </div>
+                    </div>
+                    <div class="topic-group">
+                        <span class="topic-group-label">💡 Generational Values</span>
+                        <div class="topic-chips">
+                            <button class="topic-chip" onclick="sendTopic(this)">Millennials invest in self-growth, Gen X seeks rebalancing, Boomers want to stay useful. Which resonates with you?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">How has technology changed what you can do? Is it a possibility engine, learning tool, or ease enabler?</button>
+                            <button class="topic-chip" onclick="sendTopic(this)">Should brands sell "anti-aging fear" or enable "pro-aging blossoming"? What would make you feel truly seen?</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+        <!-- File preview chip -->
+        <div id="file-preview" class="file-preview hidden">
+            <span class="file-preview-icon">📎</span>
+            <span id="file-preview-name"></span>
+            <button id="file-remove-btn" class="file-remove-btn" onclick="removeFile()">&times;</button>
+        </div>
+        <div class="input-wrapper">
+            <input type="file" id="file-input"
+                   accept=".txt,.pdf,.docx,.csv,.md,.json,.xlsx,.pptx"
+                   style="display:none" onchange="onFileSelected()">
+            <button type="button" class="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach file">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+            </button>
+            <input type="text" id="message-input" placeholder="Send a message" autocomplete="off">
+            <button id="send-btn" onclick="sendMessage()" class="send-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2">
+                    <line x1="12" y1="19" x2="12" y2="5"/>
+                    <polyline points="5 12 12 5 19 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="chat-footer">
+        &copy; Hakuhodo Inc. All rights reserved.
+    </div>
+
+    <!-- RAG Sources indicator -->
+    <div id="rag-indicator" class="rag-indicator hidden">
+        <span class="rag-dot"></span> RAG: <span id="rag-source-count">0</span> sources
+    </div>
+
+    <script>
+        const personaId = '{{ persona.id }}';
+        let chatHistory = [];
+        let isLoading = false;
+        let attachedFile = null;
+
+        const messagesArea = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+
+        // ── Topic Tray ──
+        function toggleTopicTray() {
+            document.getElementById('topic-tray').classList.toggle('open');
+        }
+
+        function sendTopic(btn) {
+            if (isLoading) return;
+            const text = btn.textContent.trim();
+            // Close tray after selecting
+            document.getElementById('topic-tray').classList.remove('open');
+            // Send
+            messageInput.value = text;
+            sendMessage();
+        }
+
+        // Enter key to send
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function toggleProfile() {
+            document.getElementById('profile-panel').classList.toggle('hidden');
+        }
+
+        // File attachment
+        function onFileSelected() {
+            const input = document.getElementById('file-input');
+            if (input.files.length > 0) {
+                attachedFile = input.files[0];
+                document.getElementById('file-preview-name').textContent = attachedFile.name;
+                document.getElementById('file-preview').classList.remove('hidden');
+            }
+            input.value = '';
+        }
+
+        function removeFile() {
+            attachedFile = null;
+            document.getElementById('file-preview').classList.add('hidden');
+        }
+
+        function addMessage(role, text, fileName) {
+            const div = document.createElement('div');
+            div.className = `message ${role}-message`;
+
+            const bubble = document.createElement('div');
+            bubble.className = `bubble ${role}-bubble`;
+
+            // Show file badge if attached
+            if (fileName) {
+                const badge = document.createElement('div');
+                badge.className = 'file-badge';
+                badge.textContent = `📎 ${fileName}`;
+                bubble.appendChild(badge);
+            }
+
+            const content = document.createElement('span');
+            content.innerHTML = formatText(text);
+            bubble.appendChild(content);
+
+            div.appendChild(bubble);
+            messagesArea.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addTypingIndicator() {
+            const div = document.createElement('div');
+            div.className = 'message bot-message';
+            div.id = 'typing-indicator';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble bot-bubble typing';
+            bubble.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+
+            div.appendChild(bubble);
+            messagesArea.appendChild(div);
+            scrollToBottom();
+        }
+
+        function removeTypingIndicator() {
+            const el = document.getElementById('typing-indicator');
+            if (el) el.remove();
+        }
+
+        function formatText(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function scrollToBottom() {
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || isLoading) return;
+
+            const currentFile = attachedFile;
+            const currentFileName = currentFile ? currentFile.name : null;
+
+            isLoading = true;
+            messageInput.value = '';
+            messageInput.disabled = true;
+            removeFile();
+
+            // Add user message with file badge
+            addMessage('user', text, currentFileName);
+
+            // Show typing indicator
+            addTypingIndicator();
+
+            try {
+                let response;
+                if (currentFile) {
+                    const formData = new FormData();
+                    formData.append('message', text);
+                    formData.append('history', JSON.stringify(chatHistory));
+                    formData.append('file', currentFile);
+                    response = await fetch(`/api/chat/${personaId}`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    response = await fetch(`/api/chat/${personaId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: text,
+                            history: chatHistory
+                        })
+                    });
+                }
+
+                // Handle non-OK responses
+                if (!response.ok) {
+                    removeTypingIndicator();
+                    if (response.status === 401) {
+                        addMessage('bot', 'Session expired. Redirecting to login...');
+                        setTimeout(() => { window.location.href = '/login'; }, 1500);
+                    } else if (response.status === 502 || response.status === 503) {
+                        addMessage('bot', 'Server is restarting. Please wait a moment and try again.');
+                    } else {
+                        addMessage('bot', `Server error (${response.status}). Please try again.`);
+                    }
+                    isLoading = false;
+                    messageInput.disabled = false;
+                    messageInput.focus();
+                    return;
+                }
+
+                // Safely parse JSON
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    removeTypingIndicator();
+                    addMessage('bot', 'Server returned an unexpected response. Please refresh the page and try again.');
+                    isLoading = false;
+                    messageInput.disabled = false;
+                    return;
+                }
+                removeTypingIndicator();
+
+                if (data.error) {
+                    addMessage('bot', `Error: ${data.error}`);
+                } else {
+                    addMessage('bot', data.reply);
+                    chatHistory.push({ role: 'user', content: text });
+                    chatHistory.push({ role: 'assistant', content: data.reply });
+
+                    // Update RAG indicator
+                    if (data.rag_sources && data.rag_sources.length > 0) {
+                        const uniqueSources = [...new Set(data.rag_sources.filter(s => s))];
+                        document.getElementById('rag-source-count').textContent = uniqueSources.length;
+                        document.getElementById('rag-indicator').classList.remove('hidden');
+                    }
+                }
+
+            } catch (err) {
+                removeTypingIndicator();
+                addMessage('bot', 'Connection error. Please check your network and try again.');
+            }
+
+            isLoading = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+        }
+
+        // Mobile: scroll input into view when keyboard opens
+        if ('visualViewport' in window) {
+            window.visualViewport.addEventListener('resize', () => {
+                document.querySelector('.input-area').scrollIntoView({ block: 'end' });
+            });
+        }
+
+        // Focus input on load (desktop only, avoid keyboard popup on mobile)
+        if (window.innerWidth > 768) {
+            messageInput.focus();
+        }
+    </script>
+</body>
+</html>
